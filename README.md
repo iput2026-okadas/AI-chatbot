@@ -1,2 +1,113 @@
-# AI-chatbot
-OpenAIのStructured Outputsを用いたカスタマーサポート用チャットボット。専門用語を使わないわかりやすい応答を行い、契約・決済・システム障害など対応が難しい内容は自動でSlackへエスカレーション通知します。AIアシスタント(Claude)を活用して開発。
+# カスタマーサポート チャットボット
+
+![Python](https://img.shields.io/badge/Python-3.13-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991)
+
+OpenAIのStructured Outputsを使い、AIが自動応答しつつ、必要に応じて人間オペレーターへエスカレーション（Slack通知）するカスタマーサポートチャットボットです。
+
+> **Note:** 本プロジェクトのコード・ドキュメントの一部は、Anthropic社のAIアシスタント「Claude」を活用して作成・デバッグしています。
+
+## 主な機能
+
+- ユーザーとのチャット対応（GPT-4oベース）
+- 専門用語を使わない、わかりやすい回答を行うようプロンプト設計
+- 以下の場合は自動的に人間オペレーターへ引き継ぎ
+  - 契約情報・決済・返金・アカウント変更に関する内容
+  - システム障害の報告
+  - ユーザーが人間対応を希望した場合
+  - AIが確証を持てない複雑な相談
+- エスカレーション時、会話ログを3行に要約してSlackへ通知
+
+## 開発の背景
+
+サポート業務では「AIで対応できる範囲」と「人間が対応すべき範囲」の線引きが難しいという課題があります。
+本プロジェクトでは、OpenAIのStructured Outputsを使い、AIが自身の回答に対して
+「エスカレーションすべきか」を構造化データとして判定する設計にしました。
+これにより、AIの回答文とは独立して、確実にエスカレーション条件を制御できます。
+
+## システム構成
+
+```
+[ブラウザ (index.html)]
+        │  fetch("/api/chat")
+        ▼
+[FastAPI サーバー (main.py)]
+        │
+   ┌────┴────┐
+   ▼         ▼
+[OpenAI API] [Slack Webhook]
+```
+
+## 構成
+
+```
+.
+├── main.py          # FastAPIバックエンド
+├── index.html       # フロントエンド（チャットUI）
+├── .env.example     # 環境変数のサンプル
+└── requirements.txt
+```
+
+## セットアップ
+
+### 1. リポジトリをクローン
+
+```bash
+git clone https://github.com/iput2026-okadas/AI-chatbot.git
+cd AI-chatbot
+```
+
+### 2. 仮想環境の作成と依存関係のインストール
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windowsの場合: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 3. 環境変数の設定
+
+`.env.example` をコピーして `.env` を作成し、実際の値を入力してください。
+
+```bash
+cp .env.example .env
+```
+
+```
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxx
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxxxxxxx
+PORT=8000
+```
+
+**`.env` は絶対にGitにコミットしないでください（`.gitignore`で除外済みです）。**
+
+### 4. バックエンドの起動
+
+```bash
+python main.py
+```
+
+`http://localhost:8000` でAPIサーバーが起動します。
+
+### 5. フロントエンドを開く
+
+`index.html` をブラウザで直接開いてください（`0.0.0.0:8000` など、APIサーバーのURLに直接アクセスしても動作しません）。
+
+## 使用技術
+
+- FastAPI
+- OpenAI API（Structured Outputs / `gpt-4o`）
+- httpx（Slack Webhook通知）
+- Tailwind CSS（フロントエンド）
+
+## 今後の課題
+
+- [ ] 会話履歴の永続化（現状はブラウザのメモリ上のみ）
+- [ ] CORS設定を本番用ドメインに限定
+- [ ] エスカレーション後、人間オペレーターからの返信をチャット上に反映する機能
+- [ ] 利用ログ・分析ダッシュボード
+
+## 注意事項
+
+- 本番環境で運用する場合、`main.py` のCORS設定（`allow_origins=["*"]`）は、実際に利用するフロントエンドのドメインに絞ることを推奨します。
