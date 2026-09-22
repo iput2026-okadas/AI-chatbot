@@ -1,9 +1,5 @@
 # カスタマーサポート チャットボット
 
-![Python](https://img.shields.io/badge/Python-3.13-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688)
-![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991)
-
 OpenAIのStructured Outputsを使い、AIが自動応答しつつ、必要に応じて人間オペレーターへエスカレーション（Slack通知）するカスタマーサポートチャットボットです。
 
 > **Note:** 本プロジェクトのコード・ドキュメントの一部は、Anthropic社のAIアシスタント「Claude」を活用して作成・デバッグしています。
@@ -18,26 +14,6 @@ OpenAIのStructured Outputsを使い、AIが自動応答しつつ、必要に応
   - ユーザーが人間対応を希望した場合
   - AIが確証を持てない複雑な相談
 - エスカレーション時、会話ログを3行に要約してSlackへ通知
-
-## 開発の背景
-
-サポート業務では「AIで対応できる範囲」と「人間が対応すべき範囲」の線引きが難しいという課題があります。
-本プロジェクトでは、OpenAIのStructured Outputsを使い、AIが自身の回答に対して
-「エスカレーションすべきか」を構造化データとして判定する設計にしました。
-これにより、AIの回答文とは独立して、確実にエスカレーション条件を制御できます。
-
-## システム構成
-
-```
-[ブラウザ (index.html)]
-        │  fetch("/api/chat")
-        ▼
-[FastAPI サーバー (main.py)]
-        │
-   ┌────┴────┐
-   ▼         ▼
-[OpenAI API] [Slack Webhook]
-```
 
 ## 構成
 
@@ -54,8 +30,8 @@ OpenAIのStructured Outputsを使い、AIが自動応答しつつ、必要に応
 ### 1. リポジトリをクローン
 
 ```bash
-git clone https://github.com/iput2026-okadas/AI-chatbot.git
-cd AI-chatbot
+git clone <このリポジトリのURL>
+cd <リポジトリ名>
 ```
 
 ### 2. 仮想環境の作成と依存関係のインストール
@@ -100,13 +76,6 @@ python main.py
 - OpenAI API（Structured Outputs / `gpt-4o`）
 - httpx（Slack Webhook通知）
 - Tailwind CSS（フロントエンド）
-
-## 今後の課題
-
-- [ ] 会話履歴の永続化（現状はブラウザのメモリ上のみ）
-- [ ] CORS設定を本番用ドメインに限定
-- [ ] エスカレーション後、人間オペレーターからの返信をチャット上に反映する機能
-- [ ] 利用ログ・分析ダッシュボード
 
 ## 注意事項
 

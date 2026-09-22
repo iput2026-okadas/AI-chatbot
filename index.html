@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カスタマーサポート チャット</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* カスタムスクロールバー */
+        .chat-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-scroll::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-sky-50 min-h-screen flex flex-col justify-center items-center p-4">
+
+    <!-- チャットコンテナ -->
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col h-[650px] overflow-hidden border border-sky-100">
+
+        <!-- ヘッダー -->
+        <div class="bg-sky-500 text-white p-4 flex items-center justify-between shadow-md">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-xl shadow-inner">
+                </div>
+                <div>
+                    <h1 class="font-bold text-base">サポートアシスタント</h1>
+                    <p class="text-xs text-sky-100">いつでもお気軽にご相談ください</p>
+                </div>
+            </div>
+            <button id="escalate-btn" onclick="requestHumanSupport()" class="text-xs bg-sky-600 hover:bg-sky-700 text-white py-1.5 px-3 rounded-full transition-colors border border-sky-400">
+                スタッフ呼出
+            </button>
+        </div>
+
+        <!-- チャットログエリア -->
+        <div id="chat-logs" class="flex-1 p-4 overflow-y-auto space-y-4 chat-scroll bg-slate-50">
+            <!-- AI 初期メッセージ -->
+            <div class="flex items-start space-x-2">
+                <div class="w-8 h-8 rounded-full bg-sky-400 flex items-center justify-center text-white text-sm shrink-0">
+                </div>
+                <div class="bg-white p-3.5 rounded-2xl rounded-tl-none shadow-sm border border-slate-100 max-w-[80%] text-sm text-slate-700 leading-relaxed">
+                    こんにちは！困ったことはありますか？どんなことでも聞いてくださいね！
+                </div>
+            </div>
+        </div>
+
+        <!-- ローディング表示（初期状態は非表示） -->
+        <div id="loading" class="hidden px-4 py-2 flex items-center space-x-2 text-slate-400 text-xs">
+            <div class="w-6 h-6 rounded-full bg-sky-400 flex items-center justify-center text-white text-xs">🤖</div>
+            <div class="flex space-x-1 bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-slate-100">
+                <div class="w-2 h-2 bg-sky-400 rounded-full animate-bounce"></div>
+                <div class="w-2 h-2 bg-sky-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                <div class="w-2 h-2 bg-sky-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+            </div>
+        </div>
+
+        <!-- 入力エリア -->
+        <div class="p-3 bg-white border-t border-slate-100">
+            <form id="chat-form" onsubmit="handleSubmit(event)" class="flex space-x-2">
+                <input
+                    type="text"
+                    id="user-input"
+                    placeholder="メッセージを入力してください..."
+                    class="flex-1 border border-slate-200 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 transition-all bg-slate-50 focus:bg-white"
+                    autocomplete="off"
+                />
+                <button
+                    type="submit"
+                    id="send-btn"
+                    class="bg-sky-500 hover:bg-sky-600 text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors shadow-md disabled:opacity-50"
+                >
+                    <svg class="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        const API_URL = "http://localhost:8000/api/chat";
+        const messages = []; // 会話履歴 [{role: "user"|"assistant", content: "..."}]
+        let isEscalated = false;
+
+        const chatLogs = document.getElementById('chat-logs');
+        const userInput = document.getElementById('user-input');
+        const loading = document.getElementById('loading');
+        const sendBtn = document.getElementById('send-btn');
+        const escalateBtn = document.getElementById('escalate-btn');
+
+        // メッセージ描画
+        function appendMessage(role, text, isWarning = false) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex items-start space-x-2 ${role === 'user' ? 'justify-end' : ''}`;
+
+            if (role === 'user') {
+                wrapper.innerHTML = `
+                    <div class="bg-sky-500 text-white p-3.5 rounded-2xl rounded-tr-none shadow-sm max-w-[80%] text-sm leading-relaxed">
+                        ${escapeHtml(text)}
+                    </div>
+                `;
+            } else {
+                const bgClass = isWarning ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-white border-slate-100 text-slate-700';
+                wrapper.innerHTML = `
+                    <div class="w-8 h-8 rounded-full ${isWarning ? 'bg-amber-400' : 'bg-sky-400'} flex items-center justify-center text-white text-sm shrink-0">
+                    </div>
+                    <div class="${bgClass} p-3.5 rounded-2xl rounded-tl-none shadow-sm border max-w-[80%] text-sm leading-relaxed">
+                        ${escapeHtml(text)}
+                    </div>
+                `;
+            }
+
+            chatLogs.appendChild(wrapper);
+            chatLogs.scrollTop = chatLogs.scrollHeight;
+        }
+
+        // 送信処理
+        async function handleSubmit(e) {
+            e.preventDefault();
+            const text = userInput.value.trim();
+            if (!text || isEscalated) return;
+
+            // ユーザー発言を追加
+            appendMessage('user', text);
+            messages.push({ role: 'user', content: text });
+            userInput.value = '';
+
+            // UI状態切替
+            setLoading(true);
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: messages })
+                });
+
+                if (!response.ok) throw new Error('API Request Failed');
+
+                const data = await response.json();
+
+                // AI発言を履歴に追加 & 描画
+                messages.push({ role: 'assistant', content: data.reply });
+                appendMessage('assistant', data.reply, data.escalated);
+
+                // エスカレーション発生時のUIロック
+                if (data.escalated) {
+                    lockChatForEscalation();
+                }
+
+            } catch (err) {
+                console.error(err);
+                appendMessage('assistant', 'ごめんなさい、うまく通信できませんでした。時間をおいてもう一度試してみてください。');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // 人間オペレーター呼出
+        function requestHumanSupport() {
+            if (isEscalated) return;
+            userInput.value = "スタッフの方と直接話したいです。";
+            handleSubmit(new Event('submit'));
+        }
+
+        function setLoading(isLoading) {
+            if (isLoading) {
+                loading.classList.remove('hidden');
+                userInput.disabled = true;
+                sendBtn.disabled = true;
+                chatLogs.scrollTop = chatLogs.scrollHeight;
+            } else {
+                loading.classList.add('hidden');
+                if (!isEscalated) {
+                    userInput.disabled = false;
+                    sendBtn.disabled = false;
+                    userInput.focus();
+                }
+            }
+        }
+
+        function lockChatForEscalation() {
+            isEscalated = true;
+            userInput.disabled = true;
+            userInput.placeholder = "スタッフへ引き継ぎを行いました";
+            sendBtn.disabled = true;
+            escalateBtn.disabled = true;
+            escalateBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>'"]/g,
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+    </script>
+</body>
+</html>
